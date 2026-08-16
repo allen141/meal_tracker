@@ -792,7 +792,7 @@ function AppShell() {
         <main className="main-content">{route === "planner" && <PlannerPage />}{route === "meals" && <MealsPage />}{route === "prep" && <PrepPage />}</main>
       </div>
       <nav className="mobile-nav" aria-label="Mobile navigation">{[["planner", "Plan"], ["meals", "Meals"], ["prep", "Prep"]].map(([key, label]) => <a className={route === key ? "mobile-nav-link active" : "mobile-nav-link"} href={`#/${key}`} aria-current={route === key ? "page" : undefined} key={key}><span aria-hidden="true">{key === "planner" ? "⌁" : key === "meals" ? "◈" : "◷"}</span>{label}</a>)}<button className="mobile-nav-link" type="button" onClick={() => setAccountOpen(true)}><span aria-hidden="true">○</span>Account</button></nav>
-      <footer className="build-version" title={`Git commit ${buildVersion}`} aria-label={`Git commit ${buildVersion}`}>{shortBuildVersion}</footer>
+      <footer className="build-version" title={buildVersion} aria-label={buildVersion}>{shortBuildVersion}</footer>
       <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
       <ConfirmDialog request={resetOpen ? { title: "Reset demo data?", body: "This restores the default meals and targets and clears the current planner and prep blocks. Your account stays signed in.", confirmLabel: "Reset data", danger: true, onConfirm: () => { resetDemo(); setResetOpen(false); } } : null} onClose={() => setResetOpen(false)} />
     </div>

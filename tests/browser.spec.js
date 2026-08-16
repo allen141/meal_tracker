@@ -97,5 +97,5 @@ test("shows the deployed commit hash", async ({ page }) => {
   await page.goto("/#/planner");
   const version = page.locator(".build-version");
   await expect(version).toHaveText(/^[a-z0-9]+$/i);
-  await expect(version).toHaveAttribute("title", /^Git commit /);
+  await expect(version).toHaveAttribute("title", /^[a-z0-9]+$/i);
 });
