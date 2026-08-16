@@ -92,3 +92,10 @@ test("dark workspace has no automated accessibility violations", async ({ page }
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });
+
+test("shows the deployed git build version", async ({ page }) => {
+  await page.goto("/#/planner");
+  const version = page.locator(".build-version");
+  await expect(version).toHaveText(/^git /);
+  await expect(version).toHaveAttribute("title", /^Git commit /);
+});
