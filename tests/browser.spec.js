@@ -93,9 +93,9 @@ test("dark workspace has no automated accessibility violations", async ({ page }
   expect(results.violations).toEqual([]);
 });
 
-test("shows the deployed git build version", async ({ page }) => {
+test("shows the deployed commit hash", async ({ page }) => {
   await page.goto("/#/planner");
   const version = page.locator(".build-version");
-  await expect(version).toHaveText(/^git /);
+  await expect(version).toHaveText(/^[a-z0-9]+$/i);
   await expect(version).toHaveAttribute("title", /^Git commit /);
 });
