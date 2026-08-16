@@ -1,0 +1,96 @@
+services:
+  api:
+    image: ${API_IMAGE:-ghcr.io/allen141/macroflow-api:controller-must-not-deploy}
+    container_name: macroflow-api
+    restart: unless-stopped
+    env_file: ${SECRETS_FILE}
+    environment:
+      PORT: "3000"
+      DB_PATH: /var/lib/macroflow/macroflow.db
+      APP_VERSION: ${BUILD_VERSION}
+      SERVE_STATIC: "0"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - ${DATA_DIR}:/var/lib/macroflow
+    networks:
+      internal:
+        aliases:
+          - macroflow-api
+
+  production-web:
+    image: ${WEB_IMAGE}
+    container_name: macroflow-production-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - internal
+      - ingress
+
+  preview-web:
+    image: ${WEB_IMAGE}
+    container_name: macroflow-preview-web
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - internal
+      - ingress
+
+  backup:
+    image: ${DEPLOYER_IMAGE:-macroflow-deployer:local}
+    container_name: macroflow-backup
+    restart: unless-stopped
+    profiles: ["backup"]
+    entrypoint: ["/usr/local/bin/macroflow-backup"]
+    environment:
+      DB_PATH: /var/lib/macroflow/macroflow.db
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_SECONDS: "86400"
+      BACKUP_RETENTION_DAYS: "14"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - ${DATA_DIR}:/var/lib/macroflow:ro
+      - ${BACKUP_DIR}:/backups
+
+networks:
+  internal:
+    name: macroflow-internal
+  ingress:
+    external: true
+    name: proxynet

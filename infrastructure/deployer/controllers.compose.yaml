@@ -1,0 +1,38 @@
+services:
+  preview:
+    image: macroflow-deployer:local
+    build:
+      context: ../..
+      dockerfile: infrastructure/deployer/Dockerfile
+    container_name: macroflow-deployer-preview
+    restart: unless-stopped
+    environment:
+      CHANNEL: preview
+      POLL_SECONDS: "60"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/user/appdata/macroflow/deployer:/controller-states:ro
+      - /mnt/user/appdata/macroflow/deployer/preview:/state
+      - /mnt/user/appdata/macroflow/deployer/shared:/shared-state
+      - /mnt/user/appdata/macroflow/preview.environment.env:/config/environment.env:ro
+      - /mnt/user/appdata/macroflow/registry:/root/.docker:ro
+
+  production:
+    image: macroflow-deployer:local
+    build:
+      context: ../..
+      dockerfile: infrastructure/deployer/Dockerfile
+    container_name: macroflow-deployer-production
+    restart: unless-stopped
+    environment:
+      CHANNEL: production
+      POLL_SECONDS: "60"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/user/appdata/macroflow/deployer:/controller-states:ro
+      - /mnt/user/appdata/macroflow/deployer/production:/state
+      - /mnt/user/appdata/macroflow/deployer/shared:/shared-state
+      - /mnt/user/appdata/macroflow:/mnt/user/appdata/macroflow
+      - /mnt/user/appdata/macroflow/production.environment.env:/config/environment.env:ro
+      - /mnt/user/appdata/macroflow/production.secrets.env:/config/secrets.env:ro
+      - /mnt/user/appdata/macroflow/registry:/root/.docker:ro

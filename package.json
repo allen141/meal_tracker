@@ -5,13 +5,21 @@
   "description": "MacroFlow meal tracker with Express + SQLite backend",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "SERVE_STATIC=1 node server.js",
+    "start:api": "node server.js",
+    "dev": "SERVE_STATIC=1 node server.js",
+    "check": "node --check server.js && node --check db.js && node --check migrate.js && node --check app.js",
+    "migrate": "node migrate.js",
+    "test": "node --test test/*.test.js",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
   }
 }

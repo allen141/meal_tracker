@@ -1,0 +1,221 @@
+name: Application
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: application-${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+  cancel-in-progress: true
+
+env:
+  API_REPOSITORY: ghcr.io/allen141/macroflow-api
+  WEB_REPOSITORY: ghcr.io/allen141/macroflow-web
+  RELEASE_REPOSITORY: ghcr.io/allen141/macroflow-release
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f Dockerfile.api -t macroflow-api:test .
+      - run: docker build -f Dockerfile.web -t macroflow-web:test .
+      - name: Smoke test shared-backend topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create macroflow-ci
+          docker volume create macroflow-ci-data
+          docker run -d --name macroflow-api --network macroflow-ci \
+            -e JWT_SECRET=ci-only-secret-with-at-least-32-characters -e DB_PATH=/var/lib/macroflow/macroflow.db \
+            -v macroflow-ci-data:/var/lib/macroflow macroflow-api:test
+          docker run -d --name macroflow-web --network macroflow-ci macroflow-web:test
+          for attempt in {1..30}; do
+            docker run --rm --network macroflow-ci curlimages/curl:8.12.1 \
+              -fsS http://macroflow-web:8080/api/health/ready >/dev/null && break
+            test "$attempt" -lt 30
+            sleep 2
+          done
+          test -n "$(docker image inspect -f '{{.Config.User}}' macroflow-web:test)"
+          test "$(docker image inspect -f '{{.Config.User}}' macroflow-web:test)" != 0
+      - if: always()
+        run: |
+          docker logs macroflow-api 2>&1 || true
+          docker logs macroflow-web 2>&1 || true
+          docker rm -f macroflow-api macroflow-web 2>/dev/null || true
+          docker volume rm macroflow-ci-data 2>/dev/null || true
+          docker network rm macroflow-ci 2>/dev/null || true
+
+  preview-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: base
+      - if: github.event_name == 'pull_request'
+        name: Smoke test candidate web against base API
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_context=base
+          if test ! -f base/Dockerfile.api; then
+            echo "::warning::Base predates container delivery; using candidate API for this bootstrap change."
+            api_context=candidate
+          fi
+          docker build -f "$api_context/Dockerfile.api" -t macroflow-main-api "$api_context"
+          docker build -f candidate/Dockerfile.web -t macroflow-candidate-web candidate
+          docker network create macroflow-compat
+          docker volume create macroflow-compat-data
+          docker run -d --name macroflow-api --network macroflow-compat \
+            -e JWT_SECRET=compatibility-secret-with-at-least-32-characters -e DB_PATH=/var/lib/macroflow/macroflow.db \
+            -v macroflow-compat-data:/var/lib/macroflow macroflow-main-api
+          docker run -d --name macroflow-candidate-web --network macroflow-compat macroflow-candidate-web
+          for attempt in {1..30}; do
+            docker run --rm --network macroflow-compat curlimages/curl:8.12.1 \
+              -fsS http://macroflow-candidate-web:8080/api/health/ready >/dev/null && exit 0
+            test "$attempt" -lt 30
+            sleep 2
+          done
+          exit 1
+      - if: always() && github.event_name == 'pull_request'
+        run: |
+          docker logs macroflow-api 2>&1 || true
+          docker logs macroflow-candidate-web 2>&1 || true
+          docker rm -f macroflow-api macroflow-candidate-web 2>/dev/null || true
+          docker volume rm macroflow-compat-data 2>/dev/null || true
+          docker network rm macroflow-compat 2>/dev/null || true
+
+  controller-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f infrastructure/deployer/Dockerfile -t macroflow-deployer:test .
+      - run: infrastructure/deployer/tests/controller-test.sh macroflow-deployer:test
+      - run: |
+          docker build -f infrastructure/release/Dockerfile -t macroflow-release:test \
+            --build-arg CHANNEL=preview --build-arg API_IMAGE= \
+            --build-arg WEB_IMAGE=ghcr.io/allen141/macroflow-web@sha256:test \
+            --build-arg BUILD_VERSION=test --build-arg BUILD_PR_NUMBER=1 .
+          test "$(docker image inspect -f '{{index .Config.Labels "net.tylerallen.macroflow.api"}}' macroflow-release:test)" = ""
+
+  publish:
+    needs: [test, containers, preview-compatibility, controller-policy]
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: sigstore/cosign-installer@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: release
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            {
+              echo channel=preview
+              echo "version=${{ github.event.pull_request.head.sha }}"
+              echo "pr=${{ github.event.pull_request.number }}"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo channel=production
+              echo "version=$GITHUB_SHA"
+              echo pr=
+            } >> "$GITHUB_OUTPUT"
+          fi
+      - id: api
+        if: steps.release.outputs.channel == 'production'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.API_REPOSITORY }}:sha-${{ steps.release.outputs.version }}
+          build-args: BUILD_VERSION=${{ steps.release.outputs.version }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+      - id: web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.WEB_REPOSITORY }}:sha-${{ steps.release.outputs.version }}
+          build-args: BUILD_VERSION=${{ steps.release.outputs.version }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+      - id: descriptor
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/release/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.RELEASE_REPOSITORY }}:sha-${{ steps.release.outputs.version }}
+            ${{ env.RELEASE_REPOSITORY }}:${{ steps.release.outputs.channel }}
+          build-args: |
+            CHANNEL=${{ steps.release.outputs.channel }}
+            API_IMAGE=${{ steps.release.outputs.channel == 'production' && format('{0}@{1}', env.API_REPOSITORY, steps.api.outputs.digest) || '' }}
+            WEB_IMAGE=${{ env.WEB_REPOSITORY }}@${{ steps.web.outputs.digest }}
+            BUILD_VERSION=${{ steps.release.outputs.version }}
+            BUILD_PR_NUMBER=${{ steps.release.outputs.pr }}
+      - name: Sign immutable artifacts
+        env:
+          API_DIGEST: ${{ steps.api.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+          RELEASE_DIGEST: ${{ steps.descriptor.outputs.digest }}
+        run: |
+          if [[ "${{ steps.release.outputs.channel }}" == production ]]; then
+            cosign sign --yes "$API_REPOSITORY@$API_DIGEST"
+          fi
+          cosign sign --yes "$WEB_REPOSITORY@$WEB_DIGEST"
+          cosign sign --yes "$RELEASE_REPOSITORY@$RELEASE_DIGEST"
+      - name: Summarize release
+        run: |
+          {
+            echo "### ${{ steps.release.outputs.channel }} release"
+            echo "- Commit: \`${{ steps.release.outputs.version }}\`"
+            echo "- Web: \`${{ steps.web.outputs.digest }}\`"
+            echo "- Descriptor: \`${{ steps.descriptor.outputs.digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
