@@ -1,0 +1,6 @@
+CONTAINER_PREFIX=macroflow-preview
+ENV_ROOT=/mnt/user/appdata/macroflow
+DATA_DIR=/mnt/user/appdata/macroflow/data
+BACKUP_DIR=/mnt/user/appdata/macroflow/backups
+SECRETS_FILE=/dev/null
+COMPOSE_PROJECT_NAME=macroflow

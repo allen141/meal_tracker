@@ -1,0 +1,4 @@
+#!/bin/sh
+
+test -z "${FAKE_DOCKER_LOG:-}" || printf 'cosign %s\n' "$*" >> "$FAKE_DOCKER_LOG"
+exit 0

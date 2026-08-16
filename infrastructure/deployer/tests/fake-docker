@@ -1,0 +1,49 @@
+#!/bin/sh
+
+test -z "${FAKE_DOCKER_LOG:-}" || printf '%s\n' "$*" >> "$FAKE_DOCKER_LOG"
+
+release_repo=ghcr.io/allen141/macroflow-release
+api_repo=ghcr.io/allen141/macroflow-api
+web_repo=ghcr.io/allen141/macroflow-web
+release_digest="$release_repo@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+api_digest="$api_repo@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+web_digest="$web_repo@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+if test "${1:-}" = pull; then
+  test "${FAKE_PULL_FAIL:-0}" != 1
+  exit
+fi
+
+if test "${1:-} ${2:-}" = "image inspect"; then
+  case "$*" in
+    *RepoDigests*) printf '%s\n' "$release_digest" ;;
+    *net.tylerallen.macroflow.channel*) printf '%s\n' "${FAKE_CHANNEL:-preview}" ;;
+    *net.tylerallen.macroflow.api*) printf '%s\n' "${FAKE_API_LABEL:-}" ;;
+    *net.tylerallen.macroflow.web*) printf '%s\n' "$web_digest" ;;
+    *org.opencontainers.image.revision*) printf '%s\n' 0123456789abcdef ;;
+    *net.tylerallen.macroflow.pr*) printf '%s\n' "${FAKE_PR_NUMBER-11}" ;;
+    *aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa*) printf '%s\n' sha256:1111111111111111111111111111111111111111111111111111111111111111 ;;
+    *bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb*) printf '%s\n' sha256:2222222222222222222222222222222222222222222222222222222222222222 ;;
+    *eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee*) printf '%s\n' sha256:5555555555555555555555555555555555555555555555555555555555555555 ;;
+    *) exit 1 ;;
+  esac
+  exit
+fi
+
+if test "${1:-} ${2:-}" = "image ls"; then
+  cat <<'EOF'
+ghcr.io/allen141/macroflow-api@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd sha256:4444444444444444444444444444444444444444444444444444444444444444
+ghcr.io/allen141/macroflow-web@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc sha256:3333333333333333333333333333333333333333333333333333333333333333
+postgres@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff sha256:6666666666666666666666666666666666666666666666666666666666666666
+EOF
+  exit
+fi
+
+if test "${1:-} ${2:-}" = "image rm"; then exit; fi
+if test "${1:-}" = compose; then exit; fi
+if test "${1:-}" = inspect; then printf '%s\n' healthy; exit; fi
+if test "${1:-}" = exec; then exit; fi
+if test "${1:-}" = logs; then exit; fi
+
+echo "Unexpected docker invocation: $*" >&2
+exit 9

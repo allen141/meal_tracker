@@ -5,14 +5,12 @@ MacroFlow supports both:
 - **Local static mode** (browser-only), and
 - **Full backend mode** with **users + SQLite database + JWT auth**.
 
-## Can this be hosted on GitHub Pages?
+## Hosted environments
 
-**Partially.**
+- Production: <https://macroflow.tylerallen.net>
+- Shared pull-request preview: <https://macroflow-preview.tylerallen.net>
 
-- ✅ The frontend (`index.html`, `styles.css`, `app.js`) can auto-deploy to GitHub Pages.
-- ❌ The backend (`server.js` + SQLite DB) cannot run on GitHub Pages because Pages is static hosting only.
-
-This repo includes a GitHub Actions workflow that deploys the frontend automatically on pushes to `main`.
+Both sites use the same API and persistent SQLite database. Preview is a fully read/write view of production data, not an isolated test environment. Browser authentication is origin-specific, so sign in separately on each hostname.
 
 ## Backend features
 
@@ -38,17 +36,19 @@ All `/api/state` and `/api/meals*` endpoints require `Authorization: Bearer <tok
 
 ## Deployment architecture
 
-For full-stack hosting, use:
+GitHub Actions tests and publishes signed, immutable container releases to GHCR. Trusted pull-based controllers on the Unraid host deploy them:
 
-1. **GitHub Pages** for frontend auto-deploy, and
-2. A backend host (Render, Fly.io, Railway, VPS, etc.) for the Node/SQLite API.
+- a successful `main` workflow updates the shared API and production web interface;
+- a successful same-repository pull-request workflow updates the single preview web interface only;
+- fork pull requests run checks but cannot publish; and
+- neither web container can access the database volume.
 
-Set `window.MACROFLOW_API_BASE` in `config.js` to your backend URL in production.
+Both web containers proxy `/api` to the same internal API, so `window.MACROFLOW_API_BASE` stays empty in hosted builds. See [deployment operations](docs/operations/deployment.md) for host setup, recovery, and the shared-data warning. The architectural trust and rollback decisions are recorded in [ADR 0001](docs/decisions/0001-shared-backend-container-delivery.md).
 
 ## Run locally
 
 ```bash
-npm install
+npm ci
 npm start
 ```
 
