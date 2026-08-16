@@ -2,24 +2,46 @@
   "name": "macroflow",
   "version": "1.0.0",
   "private": true,
-  "description": "MacroFlow meal tracker with Express + SQLite backend",
+  "description": "MacroFlow meal tracker with React, Express, and SQLite",
   "main": "server.js",
   "scripts": {
-    "start": "SERVE_STATIC=1 node server.js",
+    "start": "npm run build:web && SERVE_STATIC=1 STATIC_DIR=dist node server.js",
     "start:api": "node server.js",
-    "dev": "SERVE_STATIC=1 node server.js",
-    "check": "node --check server.js && node --check db.js && node --check migrate.js && node --check app.js",
+    "dev": "concurrently -k -s first \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "node server.js",
+    "dev:web": "vite",
+    "build:web": "vite build",
+    "check": "node --check server.js && node --check db.js && node --check migrate.js && eslint .",
     "migrate": "node migrate.js",
-    "test": "node --test test/*.test.js",
+    "test": "npm run test:api && npm run test:unit",
+    "test:api": "node --test test/*.test.js",
+    "test:unit": "vitest run",
     "test:browser": "playwright test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.1"
+    "@axe-core/playwright": "^4.10.2",
+    "@eslint/js": "^9.34.0",
+    "@fontsource/inter": "^5.2.6",
+    "@playwright/test": "1.62.1",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@vitejs/plugin-react": "^5.0.2",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.34.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "jsdom": "^26.1.0",
+    "vite": "^7.1.3",
+    "vitest": "^3.2.4",
+    "eslint-plugin-react": "^7.37.5"
   }
 }

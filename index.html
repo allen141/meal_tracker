@@ -3,122 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MacroFlow — Weekly Meal Tracker</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
+    <meta name="theme-color" content="#100f0d" />
+    <title>MacroFlow — Focused weekly nutrition planning</title>
+    <meta
+      name="description"
+      content="MacroFlow helps you plan meals, track macros, and organize prep for the week."
     />
-    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Meal planning & tracking</p>
-        <h1>MacroFlow</h1>
-      </div>
-      <div class="topbar-actions">
-        <form id="targetForm" class="target-form"></form>
-        <button id="resetBtn" class="btn ghost" type="button">Reset demo data</button>
-      </div>
-    </header>
-
-    <main class="layout">
-      <section class="panel planner-panel">
-        <div class="panel-header">
-          <h2>Weekly Planner</h2>
-          <p>Drag meals into any timeslot. Macro totals update in real-time.</p>
-        </div>
-        <div id="weekGrid" class="week-grid"></div>
-      </section>
-
-      <aside class="sidebar">
-        <section class="panel">
-          <div class="panel-header compact">
-            <h2>Account</h2>
-          </div>
-          <form id="authForm" class="meal-prep-form">
-            <label>
-              Email
-              <input id="authEmail" type="email" required />
-            </label>
-            <label>
-              Password
-              <input id="authPassword" type="password" minlength="8" required />
-            </label>
-            <div class="library-actions">
-              <button class="btn" type="button" id="loginBtn">Login</button>
-              <button class="btn ghost" type="button" id="registerBtn">Register</button>
-              <button class="btn ghost" type="button" id="logoutBtn">Logout</button>
-            </div>
-            <p id="authStatus" class="chip-macros">Not logged in. Local mode.</p>
-          </form>
-        </section>
-
-        <section class="panel">
-          <div class="panel-header compact">
-            <h2>Meal Library</h2>
-            <button id="addMealBtn" class="btn">+ New meal</button>
-          </div>
-          <div class="filter-bar">
-            <input id="mealSearch" type="search" placeholder="Search meals or tags" />
-          </div>
-          <div id="mealLibrary" class="meal-library"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-header compact">
-            <h2>Meal Prep Plan</h2>
-          </div>
-          <form id="mealPrepForm" class="meal-prep-form">
-            <label>
-              Meal
-              <select id="prepMealSelect"></select>
-            </label>
-            <label>
-              Servings to cook
-              <input id="prepServings" type="number" min="1" value="4" />
-            </label>
-            <fieldset class="day-checkboxes" id="prepDays"></fieldset>
-            <button class="btn" type="submit">Add prep block</button>
-          </form>
-          <div id="prepList" class="prep-list"></div>
-        </section>
-      </aside>
-    </main>
-
-    <dialog id="mealDialog">
-      <form id="mealForm" class="modal" method="dialog">
-        <h3 id="mealDialogTitle">Add meal to library</h3>
-        <label>
-          Meal name
-          <input name="name" required />
-        </label>
-        <label>
-          Protein (g)
-          <input name="protein" type="number" min="0" required />
-        </label>
-        <label>
-          Carbs (g)
-          <input name="carbs" type="number" min="0" required />
-        </label>
-        <label>
-          Fat (g)
-          <input name="fat" type="number" min="0" required />
-        </label>
-        <label>
-          Tags (comma separated key:value)
-          <input name="tags" placeholder="protein:chicken, meal-time:lunch" />
-        </label>
-        <div class="modal-actions">
-          <button value="cancel" class="btn ghost" type="button" id="cancelMealBtn">Cancel</button>
-          <button value="submit" class="btn" type="submit">Save meal</button>
-        </div>
-      </form>
-    </dialog>
-
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+    <div id="root"></div>
+    <script src="/config.js"></script>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

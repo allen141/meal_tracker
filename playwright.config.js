@@ -7,6 +7,7 @@ const dbPath = path.join(os.tmpdir(), `macroflow-playwright-${process.pid}.db`);
 
 module.exports = defineConfig({
   testDir: "./tests",
+  testMatch: "**/*.spec.js",
   outputDir: path.join(os.tmpdir(), `macroflow-playwright-results-${process.pid}`),
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
@@ -16,7 +17,7 @@ module.exports = defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "node server.js",
+    command: "npm run build:web && node server.js",
     url: `http://127.0.0.1:${port}/api/health/ready`,
     reuseExistingServer: !process.env.CI,
     env: {
@@ -25,6 +26,7 @@ module.exports = defineConfig({
       DB_PATH: dbPath,
       JWT_SECRET: "playwright-only-secret-with-at-least-32-characters",
       SERVE_STATIC: "1",
+      STATIC_DIR: "dist",
     },
   },
 });

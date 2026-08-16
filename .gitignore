@@ -3,3 +3,4 @@ macroflow.db
 macroflow.db-shm
 macroflow.db-wal
 test-results/
+dist/
