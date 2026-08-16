@@ -9,6 +9,9 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 mkdir -p "$TEST_ROOT/host/deployer/preview" "$TEST_ROOT/host/deployer/production" "$TEST_ROOT/host/deployer/shared"
 touch "$TEST_ROOT/production.secrets.env"
 
+grep -Fq -- '--project-name' "$ROOT/infrastructure/deployer/start-controllers.sh"
+grep -Fq -- 'macroflow-deployer' "$ROOT/infrastructure/deployer/start-controllers.sh"
+
 run_controller() {
   channel=$1
   state=$2

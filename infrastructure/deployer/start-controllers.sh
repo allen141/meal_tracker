@@ -19,6 +19,8 @@ docker run --rm \
   --workdir /workspace \
   "$IMAGE" \
   compose \
+  --project-name \
+  macroflow-deployer \
   --file infrastructure/deployer/controllers.compose.yaml \
   up \
   --detach \
