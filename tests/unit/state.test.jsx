@@ -3,7 +3,11 @@ import {
   addMealToSlot,
   appStateReducer,
   cloneDefaultState,
+  addDaysToDateKey,
   deleteMealFromState,
+  getBatchCoverage,
+  getPrepOverview,
+  getScheduledOccurrences,
   macroProgress,
   moveScheduledMeal,
   normalizeState,
@@ -49,6 +53,50 @@ describe("MacroFlow state helpers", () => {
     expect(state.mealPrepBlocks).toEqual([]);
   });
 });
+
+  it("derives dated occurrences and slot times from the planning week", () => {
+    const state = cloneDefaultState();
+    state.weekStartDate = "2026-08-17";
+    state.plan.Mon.Lunch.push("meal-1");
+    state.plan.Thu.Dinner.push("meal-1");
+    const occurrences = getScheduledOccurrences(state);
+    expect(occurrences.map((item) => [item.date, item.scheduledAt])).toEqual([
+      ["2026-08-17", "2026-08-17T12:00"],
+      ["2026-08-20", "2026-08-20T18:00"],
+    ]);
+    expect(addDaysToDateKey("2026-08-17", 6)).toBe("2026-08-23");
+  });
+
+  it("counts batch coverage and reports freshness risk", () => {
+    const state = cloneDefaultState();
+    state.weekStartDate = "2026-08-17";
+    state.plan.Mon.Dinner.push("meal-3");
+    state.plan.Fri.Dinner.push("meal-3");
+    const batch = { mealId: "meal-3", servings: 2, prepDate: "2026-08-17", storageMethod: "fridge" };
+    const coverage = getBatchCoverage(batch, getScheduledOccurrences(state), state.mealLibrary[2]);
+    expect(coverage.expirationDate).toBe("2026-08-19");
+    expect(coverage.occurrences).toHaveLength(1);
+    expect(coverage.atRisk).toBe(true);
+    state.prepBatches.push(batch);
+    const overview = getPrepOverview(state);
+    expect(overview.scheduledServings).toBe(2);
+    expect(overview.coveredServings).toBe(1);
+    expect(overview.needsPrep).toBe(1);
+    expect(overview.freshnessRisks).toBe(1);
+  });
+
+  it("preserves dated batch and meal freshness fields when normalizing", () => {
+    const state = normalizeState({
+      weekStartDate: "2026-08-17",
+      mealLibrary: [{ id: "custom", name: "Soup", refrigeratedLifeDays: 2, frozenLifeDays: 30, freezerFriendly: false }],
+      prepBatches: [{ id: "batch-1", mealId: "custom", servings: 3, prepDate: "2026-08-17", storageMethod: "fridge" }],
+    });
+    expect(state.weekStartDate).toBe("2026-08-17");
+    expect(state.mealLibrary[0].refrigeratedLifeDays).toBe(2);
+    expect(state.mealLibrary[0].freezerFriendly).toBe(false);
+    expect(state.prepBatches[0]).toMatchObject({ id: "batch-1", prepDate: "2026-08-17", servings: 3 });
+  });
+
 
 
 describe("appStateReducer", () => {

@@ -1629,3 +1629,298 @@ input::placeholder {
     animation-duration: 0.01ms !important;
   }
 }
+
+
+.prep-page-heading {
+  align-items: center;
+}
+
+.week-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 4px;
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.prep-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.prep-metric {
+  display: grid;
+  gap: 5px;
+  min-height: 84px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+  padding: 14px;
+}
+
+.prep-metric span {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.prep-metric strong {
+  font-size: 1.55rem;
+}
+
+.prep-metric-good strong {
+  color: var(--protein);
+}
+
+.prep-metric-warning strong {
+  color: var(--amber-strong);
+}
+
+.prep-metric-danger strong {
+  color: var(--danger);
+}
+
+.prep-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(330px, 0.85fr);
+  align-items: start;
+  gap: 15px;
+}
+
+.prep-meal-panel,
+.prep-batch-form,
+.prep-recommendation-panel,
+.saved-batches-panel {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.prep-side-column {
+  display: grid;
+  gap: 15px;
+}
+
+.prep-meal-list,
+.recommendation-list,
+.saved-batch-list {
+  display: grid;
+  gap: 9px;
+}
+
+.prep-meal-summary,
+.recommendation-item,
+.saved-batch {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: rgba(16, 15, 13, 0.38);
+  padding: 14px;
+}
+
+.prep-meal-summary-top,
+.recommendation-item,
+.saved-batch,
+.batch-preview-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prep-meal-summary strong,
+.recommendation-item strong,
+.saved-batch strong {
+  font-size: 0.84rem;
+}
+
+.prep-meal-summary p,
+.recommendation-item p,
+.saved-batch p,
+.legacy-prep-note p {
+  color: var(--muted);
+  font-size: 0.73rem;
+  margin-top: 5px;
+}
+
+.prep-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.prep-status-good {
+  background: rgba(127, 200, 182, 0.11);
+  color: var(--protein);
+}
+
+.prep-status-warning {
+  background: rgba(242, 184, 75, 0.11);
+  color: var(--amber-strong);
+}
+
+.prep-status-danger {
+  background: rgba(229, 115, 115, 0.11);
+  color: #f0a6a6;
+}
+
+.prep-occurrences {
+  display: grid;
+  gap: 5px;
+  margin-top: 13px;
+}
+
+.prep-occurrence {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid rgba(55, 49, 40, 0.7);
+  padding-top: 6px;
+  color: var(--muted-strong);
+  font-size: 0.7rem;
+}
+
+.prep-occurrence span:last-child {
+  color: var(--muted);
+  text-align: right;
+}
+
+.prep-macro-total {
+  margin-top: 12px !important;
+  color: var(--muted-strong) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.prep-batch-form > label,
+.prep-form-grid label,
+.freshness-form-grid label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted-strong);
+  font-size: 0.75rem;
+}
+
+.prep-batch-form input,
+.prep-batch-form select,
+.freshness-form-grid input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #14120f;
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.prep-form-grid,
+.freshness-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.batch-preview {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(242, 184, 75, 0.3);
+  border-radius: 11px;
+  background: rgba(242, 184, 75, 0.06);
+  padding: 13px;
+}
+
+.batch-preview-heading {
+  color: var(--amber-strong);
+  font-size: 0.76rem;
+}
+
+.batch-preview-heading span,
+.batch-preview p {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.batch-preview-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.batch-preview-dates span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted-strong);
+  padding: 4px 7px;
+  font-size: 0.65rem;
+}
+
+.recommendation-item,
+.saved-batch {
+  align-items: center;
+}
+
+.recommendation-item .button {
+  flex: 0 0 auto;
+}
+
+.legacy-prep-note {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.checkbox-label {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.checkbox-label input {
+  width: 16px;
+  min-height: 16px;
+  accent-color: var(--amber);
+}
+
+@media (max-width: 900px) {
+  .prep-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .prep-side-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 620px) {
+  .prep-page-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .prep-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .prep-side-column {
+    grid-template-columns: 1fr;
+  }
+
+  .prep-meal-summary-top,
+  .prep-occurrence,
+  .recommendation-item,
+  .saved-batch {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .prep-occurrence span:last-child {
+    text-align: left;
+  }
+}
