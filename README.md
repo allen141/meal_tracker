@@ -2,8 +2,8 @@
 
 MacroFlow supports both:
 
-- **Local static mode** (browser-only), and
-- **Full backend mode** with **users + SQLite database + JWT auth**.
+- **Local browser mode** with device-local state, and
+- **Full backend mode** with users + SQLite database + JWT auth.
 
 ## Hosted environments
 
@@ -40,6 +40,16 @@ Unauthenticated operational endpoints:
 - `GET /api/health/ready`
 - `GET /api/health/version`
 
+## Frontend architecture
+
+The browser application is a React/Vite single-page app with three hash-addressable sections:
+
+- `#/planner` — weekly calendar, macro goals, progress, and quick scheduling.
+- `#/meals` — searchable meal library and CRUD.
+- `#/prep` — meal-prep blocks and weekday selection.
+
+Anonymous changes are written to `macroflow-state-v1` in localStorage. Sessions are stored under `macroflow-session-v1`. Signing in enables the existing API sync contract without changing the persisted state shape. The optional `window.MACROFLOW_API_BASE` override lives in `public/config.js` and remains empty for hosted same-origin deployments.
+
 ## Deployment architecture
 
 GitHub Actions tests and publishes signed, immutable container releases to GHCR. Trusted pull-based controllers on the Unraid host deploy them:
@@ -64,19 +74,31 @@ Agents and automated contributors must follow [AGENTS.md](AGENTS.md). Operators 
 
 ## Run locally
 
+Install dependencies and start the combined local API plus Vite development server:
+
 ```bash
 npm ci
-npm start
+npm run dev
 ```
 
-Then open <http://localhost:3000>.
+Open <http://localhost:5173>. The Vite server proxies `/api` to the API on port 3000.
 
-`npm start` serves the browser application and API together on port 3000. `npm run start:api` runs the API only. `DB_PATH` defaults to `./macroflow.db`; set a stable `JWT_SECRET` of at least 32 characters for any non-throwaway environment. Run migrations with `npm run migrate`, API tests with `npm test`, and browser tests with `npm run test:browser`.
+For a production-style local run, `npm start` builds the frontend into `dist/` and serves it with Express on port 3000. `npm run start:api` runs only the API. `DB_PATH` defaults to `./macroflow.db`; set a stable `JWT_SECRET` of at least 32 characters for any non-throwaway environment.
 
-For browser-only static development, serve the repository files with a local static server. Leave `window.MACROFLOW_API_BASE` empty for local-only browser state, or set it in `config.js` to an explicitly selected API while developing.
+Useful validation commands:
+
+```bash
+npm run check
+npm test
+npm run test:browser
+npm run build:web
+```
+
+The browser tests use an isolated temporary SQLite database. Do not point them at the shared preview.
 
 ## Frontend behavior
 
-- If you are **not logged in**, the app runs in local mode using `localStorage`.
+- If you are **not logged in**, the app runs in local mode using localStorage.
 - If you **log in/register**, the app syncs planner state to the backend database for that user.
 - You can switch users and each user gets isolated persisted data.
+- Planner drag-and-drop remains available on desktop; the Schedule/Move dialog provides a keyboard- and touch-friendly path.

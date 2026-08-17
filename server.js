@@ -16,6 +16,7 @@ function createApp({
   releaseVersion =
     process.env.BUILD_VERSION || process.env.APP_VERSION || process.env.GIT_COMMIT || "development",
   serveStatic = process.env.SERVE_STATIC === "1",
+  staticDir = process.env.STATIC_DIR || path.join(__dirname, "dist"),
 } = {}) {
   if (!database) throw new Error("createApp requires a database");
   const signingSecret = jwtSecret || process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
@@ -187,7 +188,7 @@ function createApp({
     return res.json({ ok: true });
   }));
 
-  if (serveStatic) app.use(express.static(path.join(__dirname)));
+  if (serveStatic) app.use(express.static(path.resolve(staticDir)));
 
   app.use((error, _req, res, _next) => {
     console.error(error);
@@ -203,9 +204,10 @@ async function startServer({
   jwtSecret,
   releaseVersion,
   serveStatic,
+  staticDir,
 } = {}) {
   const database = openDatabase(dbPath);
-  const app = createApp({ database, jwtSecret, releaseVersion, serveStatic });
+  const app = createApp({ database, jwtSecret, releaseVersion, serveStatic, staticDir });
 
   try {
     await database.initDb();

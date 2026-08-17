@@ -17,7 +17,7 @@ This file applies to the entire repository. Read it before changing application,
 
 - API and health endpoints: server.js
 - Database and migrations: db.js and migrate.js
-- Browser application: index.html, styles.css, app.js, and config.js
+- Browser application: index.html, src/, public/config.js, and vite.config.mjs
 - Images and web proxy: Dockerfile.api, Dockerfile.web, and nginx.conf
 - CI and publication: .github/workflows/application.yml
 - Host policy and rollout: infrastructure/deployer/
