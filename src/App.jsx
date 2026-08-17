@@ -671,6 +671,16 @@ function MealsPage() {
   );
 }
 
+function scheduledMealCount(state, mealId, days) {
+  return days.reduce((count, day) => count + SLOTS.reduce((dayCount, slot) => dayCount + state.plan[day][slot].filter((id) => id === mealId).length, 0), 0);
+}
+
+function prepWindow(day, prepDays) {
+  const start = DAYS.indexOf(day);
+  const nextPrep = prepDays.map((item) => DAYS.indexOf(item)).filter((index) => index > start).sort((a, b) => a - b)[0];
+  return DAYS.slice(start, nextPrep === undefined ? DAYS.length : nextPrep);
+}
+
 function PrepPage() {
   const { state, addPrepBlock, removePrepBlock } = useMacroFlow();
   const [mealId, setMealId] = useState(state.mealLibrary[0]?.id || "");
@@ -683,9 +693,19 @@ function PrepPage() {
     if (!state.mealLibrary.some((meal) => meal.id === mealId)) setMealId(state.mealLibrary[0]?.id || "");
   }, [mealId, state.mealLibrary]);
 
+  const selectedMeal = getMealById(state, mealId);
+  const sortedDays = [...days].sort((a, b) => DAYS.indexOf(a) - DAYS.indexOf(b));
+  const preview = selectedMeal ? sortedDays.map((day) => {
+    const windowDays = prepWindow(day, sortedDays);
+    const planned = scheduledMealCount(state, mealId, windowDays);
+    return { day, windowDays, planned, covered: Math.min(planned, Number(servings) || 0) };
+  }) : [];
+  const totalPlanned = selectedMeal ? scheduledMealCount(state, mealId, DAYS) : 0;
+  const totalBatchServings = sortedDays.length * (Number(servings) || 0);
+
   return (
     <section className="page-section">
-      <div className="page-heading"><div><p className="eyebrow">Meal prep</p><h1>Make the week easier.</h1><p className="page-subtitle">Batch the work once, then let the plan do its job.</p></div></div>
+      <div className="page-heading"><div><p className="eyebrow">Meal prep</p><h1>Decide what is worth cooking.</h1><p className="page-subtitle">Choose a meal, a prep day, and a batch size. Prep shows exactly which planned meals that batch can cover.</p></div></div>
       <div className="prep-layout">
         <form className="prep-form panel" onSubmit={(event) => {
           event.preventDefault();
@@ -695,16 +715,17 @@ function PrepPage() {
           setServings(4);
           setError("");
         }}>
-          <div className="section-heading"><div><p className="eyebrow">New prep block</p><h2>Set a repeatable rhythm</h2></div></div>
+          <div className="section-heading"><div><p className="eyebrow">Test a batch</p><h2>What will this cover?</h2></div></div>
           <label>Meal<select value={mealId} onChange={(event) => setMealId(event.target.value)}>{state.mealLibrary.map((meal) => <option value={meal.id} key={meal.id}>{meal.name}</option>)}</select></label>
-          <label>Servings to cook<input type="number" min="1" value={servings} onChange={(event) => setServings(event.target.value)} /></label>
-          <fieldset className="day-picker"><legend>Prep days</legend><div className="day-chip-grid">{DAYS.map((day) => <label className={days.includes(day) ? "day-chip selected" : "day-chip"} key={day}><input type="checkbox" checked={days.includes(day)} onChange={() => toggleDay(day)} />{day}</label>)}</div></fieldset>
+          <label>Servings per prep day<input type="number" min="1" value={servings} onChange={(event) => setServings(event.target.value)} /></label>
+          <fieldset className="day-picker"><legend>Cook on</legend><div className="day-chip-grid">{DAYS.map((day) => <label className={days.includes(day) ? "day-chip selected" : "day-chip"} key={day}><input type="checkbox" checked={days.includes(day)} onChange={() => toggleDay(day)} />{day}</label>)}</div></fieldset>
+          {preview.length ? <div className="prep-preview"><div className="prep-preview-heading"><strong>Coverage preview</strong><span>{totalBatchServings} servings · {totalPlanned} planned</span></div>{preview.map(({ day, windowDays, planned, covered }) => <div className="coverage-row" key={day}><div><strong>{day}</strong><span>{windowDays.join(" · ")}</span></div><span className={planned > Number(servings) ? "coverage-status coverage-warning" : "coverage-status"}>{covered}/{planned} covered</span></div>)}{totalPlanned === 0 && <p className="form-hint">This meal is not on the Planner yet. Add it there to see whether a batch earns its place.</p>}</div> : <p className="form-hint">Pick at least one cook day to see the decision preview.</p>}
           {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="button button-primary button-wide" type="submit">Add prep block</button>
+          <button className="button button-primary button-wide" type="submit">Save prep plan</button>
         </form>
         <section className="prep-list-panel panel">
-          <div className="section-heading"><div><p className="eyebrow">Your rhythm</p><h2>Prep blocks</h2></div><span className="result-count">{state.mealPrepBlocks.length} active</span></div>
-          {state.mealPrepBlocks.length ? <div className="prep-items">{state.mealPrepBlocks.map((block, index) => { const meal = getMealById(state, block.mealId); if (!meal) return null; return <article className="prep-item" key={`${block.mealId}-${index}`}><div><strong>{meal.name}</strong><p>Cook {block.servings} servings on {block.days.join(", ")}.</p></div><button className="button button-danger-quiet button-small" type="button" onClick={() => removePrepBlock(index)}>Remove</button></article>; })}</div> : <div className="empty-state empty-state-large"><span className="empty-icon">◷</span><h3>No prep blocks yet</h3><p>Add a block to see your batch-cooking rhythm here.</p></div>}
+          <div className="section-heading"><div><p className="eyebrow">Saved decisions</p><h2>Prep plans</h2></div><span className="result-count">{state.mealPrepBlocks.length} active</span></div>
+          {state.mealPrepBlocks.length ? <div className="prep-items">{state.mealPrepBlocks.map((block, index) => { const meal = getMealById(state, block.mealId); if (!meal) return null; return <article className="prep-item" key={`${block.mealId}-${index}`}><div><strong>{meal.name}</strong><p>{block.servings * block.days.length} servings across {block.days.join(", ")} · {Math.min(scheduledMealCount(state, block.mealId, DAYS), block.servings * block.days.length)}/{scheduledMealCount(state, block.mealId, DAYS)} planned servings covered.</p></div><button className="button button-danger-quiet button-small" type="button" onClick={() => removePrepBlock(index)}>Remove</button></article>; })}</div> : <div className="empty-state empty-state-large"><span className="empty-icon">◷</span><h3>No prep blocks yet</h3><p>Schedule a meal in Planner, then use this page to decide whether batching it is worthwhile.</p></div>}
         </section>
       </div>
     </section>

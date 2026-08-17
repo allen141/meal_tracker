@@ -42,7 +42,7 @@ test("anonymous users can schedule meals, search the library, and create prep bl
 
   await page.locator('.primary-nav a[href="#/prep"]').click();
   await page.locator(".day-chip").filter({ hasText: "Mon" }).click();
-  await page.getByRole("button", { name: "Add prep block" }).click();
+  await page.getByRole("button", { name: "Save prep plan" }).click();
   await expect(page.locator(".prep-item")).toHaveCount(1);
   await page.getByRole("button", { name: "Remove" }).click();
   await expect(page.locator(".prep-item")).toHaveCount(0);
