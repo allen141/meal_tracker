@@ -29,7 +29,7 @@ test("registered users persist UI state through the shared API", async ({ page }
   await expect(proteinTarget).toHaveValue("222");
 });
 
-test("anonymous users can schedule meals, search the library, and create prep blocks", async ({ page }) => {
+test("anonymous users can schedule meals, search the library, and build dated prep batches", async ({ page }) => {
   await page.goto("/#/planner");
   await page.locator(".meal-dock .button-primary").first().click();
   await page.getByRole("button", { name: "Schedule meal" }).click();
@@ -41,11 +41,11 @@ test("anonymous users can schedule meals, search the library, and create prep bl
   await expect(page.locator(".meal-grid .meal-card")).toContainText("Salmon + Rice + Greens");
 
   await page.locator('.primary-nav a[href="#/prep"]').click();
-  await page.locator(".day-chip").filter({ hasText: "Mon" }).click();
-  await page.getByRole("button", { name: "Add prep block" }).click();
-  await expect(page.locator(".prep-item")).toHaveCount(1);
-  await page.getByRole("button", { name: "Remove" }).click();
-  await expect(page.locator(".prep-item")).toHaveCount(0);
+  await page.locator("input[type=number]").first().fill("1");
+  await page.getByRole("button", { name: "Add dated batch" }).click();
+  await expect(page.locator(".saved-batch")).toHaveCount(1);
+  await page.getByRole("button", { name: "Remove" }).last().click();
+  await expect(page.locator(".saved-batch")).toHaveCount(0);
 });
 
 test("meal CRUD and reset use explicit confirmations", async ({ page }) => {

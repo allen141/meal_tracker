@@ -12,13 +12,19 @@ import { apiFetch } from "./api";
 import {
   DAYS,
   MACROS,
+  SLOT_TIMES,
   SLOTS,
+  addDaysToDateKey,
   addMealToSlot,
   appStateReducer,
   cloneDefaultState,
   deleteMealFromState,
+  formatDateKey,
   formatMacros,
+  getBatchCoverage,
   getMealById,
+  getPrepOverview,
+  getPrepRecommendations,
   loadLocalState,
   loadSession,
   macroProgress,
@@ -189,6 +195,9 @@ function AppProvider({ children }) {
         protein: Number(mealInput.protein) || 0,
         carbs: Number(mealInput.carbs) || 0,
         fat: Number(mealInput.fat) || 0,
+        refrigeratedLifeDays: Math.max(1, Number(mealInput.refrigeratedLifeDays) || 4),
+        frozenLifeDays: Math.max(1, Number(mealInput.frozenLifeDays) || 90),
+        freezerFriendly: mealInput.freezerFriendly === true,
         tags: mealInput.tags,
       };
       const next = applyLocal({
@@ -220,6 +229,9 @@ function AppProvider({ children }) {
                 protein: Number(mealInput.protein) || 0,
                 carbs: Number(mealInput.carbs) || 0,
                 fat: Number(mealInput.fat) || 0,
+                refrigeratedLifeDays: Math.max(1, Number(mealInput.refrigeratedLifeDays) || 4),
+                frozenLifeDays: Math.max(1, Number(mealInput.frozenLifeDays) || 90),
+                freezerFriendly: mealInput.freezerFriendly === true,
                 tags: mealInput.tags,
               }
             : meal,
@@ -267,6 +279,28 @@ function AppProvider({ children }) {
         ...current,
         mealPrepBlocks: current.mealPrepBlocks.filter((_, blockIndex) => blockIndex !== index),
       })),
+    [commit],
+  );
+
+  const addPrepBatch = useCallback(
+    (mealId, servings, prepDate, storageMethod) =>
+      commit((current) => ({
+        ...current,
+        prepBatches: [
+          ...current.prepBatches,
+          { id: "batch-" + crypto.randomUUID(), mealId, servings: Math.max(1, Number(servings) || 1), prepDate, storageMethod },
+        ],
+      })),
+    [commit],
+  );
+
+  const removePrepBatch = useCallback(
+    (batchId) => commit((current) => ({ ...current, prepBatches: current.prepBatches.filter((batch) => batch.id !== batchId) })),
+    [commit],
+  );
+
+  const setWeekStartDate = useCallback(
+    (weekStartDate) => commit((current) => ({ ...current, weekStartDate })),
     [commit],
   );
 
@@ -330,6 +364,9 @@ function AppProvider({ children }) {
     deleteMeal,
     addPrepBlock,
     removePrepBlock,
+    addPrepBatch,
+    removePrepBatch,
+    setWeekStartDate,
     resetDemo,
     authenticate,
     logout,
@@ -614,10 +651,10 @@ function PlannerPage() {
 
 function MealEditorDialog({ meal, onClose }) {
   const { addMeal, updateMeal } = useMacroFlow();
-  const [form, setForm] = useState({ name: "", protein: "", carbs: "", fat: "", tags: "" });
+  const [form, setForm] = useState({ name: "", protein: "", carbs: "", fat: "", refrigeratedLifeDays: 4, frozenLifeDays: 90, freezerFriendly: false, tags: "" });
 
   useEffect(() => {
-    setForm(meal ? { ...meal, tags: meal.tags.join(", ") } : { name: "", protein: "", carbs: "", fat: "", tags: "" });
+    setForm(meal ? { ...meal, tags: meal.tags.join(", ") } : { name: "", protein: "", carbs: "", fat: "", refrigeratedLifeDays: 4, frozenLifeDays: 90, freezerFriendly: false, tags: "" });
   }, [meal]);
 
   if (meal === undefined) return null;
@@ -638,6 +675,11 @@ function MealEditorDialog({ meal, onClose }) {
         <div className="macro-form-grid">
           {MACROS.map((macro) => <label key={macro}>{macro === "protein" ? "Protein (g)" : macro === "carbs" ? "Carbs (g)" : "Fat (g)"}<input name={macro} type="number" min="0" required value={form[macro]} onChange={(event) => update(macro, event.target.value)} /></label>)}
         </div>
+        <div className="freshness-form-grid">
+          <label>Fridge life (days)<input name="refrigeratedLifeDays" type="number" min="1" value={form.refrigeratedLifeDays} onChange={(event) => update("refrigeratedLifeDays", event.target.value)} /></label>
+          <label>Freezer life (days)<input name="frozenLifeDays" type="number" min="1" value={form.frozenLifeDays} onChange={(event) => update("frozenLifeDays", event.target.value)} /></label>
+        </div>
+        <label className="checkbox-label"><input name="freezerFriendly" type="checkbox" checked={form.freezerFriendly} onChange={(event) => update("freezerFriendly", event.target.checked)} /> Freezer-friendly meal</label>
         <label>Tags <span className="label-note">comma separated key:value</span><input name="tags" placeholder="protein:chicken, meal-time:lunch" value={form.tags} onChange={(event) => update("tags", event.target.value)} /></label>
         <div className="modal-actions"><button className="button button-quiet" type="button" onClick={onClose}>Cancel</button><button className="button button-primary" type="submit">Save meal</button></div>
       </form>
@@ -671,42 +713,100 @@ function MealsPage() {
   );
 }
 
+function formatWeekRange(startDate) {
+  return formatDateKey(startDate, { month: "short", day: "numeric" }) + " – " + formatDateKey(addDaysToDateKey(startDate, 6), { month: "short", day: "numeric", year: "numeric" });
+}
+
+function PrepMetric({ label, value, tone = "" }) {
+  return <div className={"prep-metric " + tone}><span>{label}</span><strong>{value}</strong></div>;
+}
+
 function PrepPage() {
-  const { state, addPrepBlock, removePrepBlock } = useMacroFlow();
+  const { state, addPrepBatch, removePrepBatch, removePrepBlock, setWeekStartDate } = useMacroFlow();
+  const overview = getPrepOverview(state);
+  const recommendations = getPrepRecommendations(state);
   const [mealId, setMealId] = useState(state.mealLibrary[0]?.id || "");
-  const [servings, setServings] = useState(4);
-  const [days, setDays] = useState([]);
+  const [servings, setServings] = useState(1);
+  const [prepDate, setPrepDate] = useState(state.weekStartDate);
+  const [storageMethod, setStorageMethod] = useState("fridge");
   const [error, setError] = useState("");
-  const toggleDay = (day) => setDays((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day]);
 
   useEffect(() => {
     if (!state.mealLibrary.some((meal) => meal.id === mealId)) setMealId(state.mealLibrary[0]?.id || "");
-  }, [mealId, state.mealLibrary]);
+    if (!prepDate || prepDate < state.weekStartDate || prepDate > addDaysToDateKey(state.weekStartDate, 6)) setPrepDate(state.weekStartDate);
+  }, [mealId, prepDate, state.mealLibrary, state.weekStartDate]);
+
+  const selectedMeal = getMealById(state, mealId);
+  const candidate = selectedMeal ? { mealId, servings: Math.max(1, Number(servings) || 1), prepDate, storageMethod } : null;
+  const candidateCoverage = candidate ? getBatchCoverage(candidate, overview.occurrences, selectedMeal) : null;
+  const shiftWeek = (days) => setWeekStartDate(addDaysToDateKey(state.weekStartDate, days));
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (!selectedMeal || !prepDate || !servings) { setError("Choose a meal, prep date, and serving count."); return; }
+    if (storageMethod === "freezer" && !selectedMeal.freezerFriendly) { setError("This meal is not marked freezer-friendly. Update it in Meals or use the fridge."); return; }
+    addPrepBatch(mealId, servings, prepDate, storageMethod);
+    setServings(1);
+    setError("");
+  };
+  const applyRecommendation = (recommendation) => {
+    setMealId(recommendation.meal.id);
+    setServings(recommendation.servings);
+    setPrepDate(recommendation.prepDate);
+    setStorageMethod("fridge");
+    setError("");
+  };
 
   return (
     <section className="page-section">
-      <div className="page-heading"><div><p className="eyebrow">Meal prep</p><h1>Make the week easier.</h1><p className="page-subtitle">Batch the work once, then let the plan do its job.</p></div></div>
-      <div className="prep-layout">
-        <form className="prep-form panel" onSubmit={(event) => {
-          event.preventDefault();
-          if (!mealId || !days.length) { setError("Choose a meal and at least one day."); return; }
-          addPrepBlock(mealId, servings, days);
-          setDays([]);
-          setServings(4);
-          setError("");
-        }}>
-          <div className="section-heading"><div><p className="eyebrow">New prep block</p><h2>Set a repeatable rhythm</h2></div></div>
-          <label>Meal<select value={mealId} onChange={(event) => setMealId(event.target.value)}>{state.mealLibrary.map((meal) => <option value={meal.id} key={meal.id}>{meal.name}</option>)}</select></label>
-          <label>Servings to cook<input type="number" min="1" value={servings} onChange={(event) => setServings(event.target.value)} /></label>
-          <fieldset className="day-picker"><legend>Prep days</legend><div className="day-chip-grid">{DAYS.map((day) => <label className={days.includes(day) ? "day-chip selected" : "day-chip"} key={day}><input type="checkbox" checked={days.includes(day)} onChange={() => toggleDay(day)} />{day}</label>)}</div></fieldset>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="button button-primary button-wide" type="submit">Add prep block</button>
-        </form>
-        <section className="prep-list-panel panel">
-          <div className="section-heading"><div><p className="eyebrow">Your rhythm</p><h2>Prep blocks</h2></div><span className="result-count">{state.mealPrepBlocks.length} active</span></div>
-          {state.mealPrepBlocks.length ? <div className="prep-items">{state.mealPrepBlocks.map((block, index) => { const meal = getMealById(state, block.mealId); if (!meal) return null; return <article className="prep-item" key={`${block.mealId}-${index}`}><div><strong>{meal.name}</strong><p>Cook {block.servings} servings on {block.days.join(", ")}.</p></div><button className="button button-danger-quiet button-small" type="button" onClick={() => removePrepBlock(index)}>Remove</button></article>; })}</div> : <div className="empty-state empty-state-large"><span className="empty-icon">◷</span><h3>No prep blocks yet</h3><p>Add a block to see your batch-cooking rhythm here.</p></div>}
-        </section>
+      <div className="page-heading prep-page-heading">
+        <div><p className="eyebrow">Meal prep · This week</p><h1>What needs to be made.</h1><p className="page-subtitle">Turn scheduled meals into dated batches, then catch freshness gaps before they become wasted food.</p></div>
+        <div className="week-picker" aria-label="Prep week">
+          <button className="button button-quiet button-small" type="button" aria-label="Previous week" onClick={() => shiftWeek(-7)}>←</button>
+          <span>{formatWeekRange(state.weekStartDate)}</span>
+          <button className="button button-quiet button-small" type="button" aria-label="Next week" onClick={() => shiftWeek(7)}>→</button>
+        </div>
       </div>
+
+      <div className="prep-metrics">
+        <PrepMetric label="Scheduled servings" value={overview.scheduledServings} />
+        <PrepMetric label="Covered by batches" value={overview.coveredServings} tone="prep-metric-good" />
+        <PrepMetric label="Needs prep" value={overview.needsPrep} tone={overview.needsPrep ? "prep-metric-warning" : "prep-metric-good"} />
+        <PrepMetric label="Freshness risks" value={overview.freshnessRisks} tone={overview.freshnessRisks ? "prep-metric-danger" : "prep-metric-good"} />
+      </div>
+
+      <div className="prep-dashboard">
+        <section className="prep-meal-panel panel">
+          <div className="section-heading"><div><p className="eyebrow">From Planner</p><h2>Meals to prepare</h2></div><span className="result-count">{overview.mealSummaries.length} meals</span></div>
+          {overview.mealSummaries.length ? <div className="prep-meal-list">{overview.mealSummaries.map((summary) => <article className="prep-meal-summary" key={summary.meal.id}>
+            <div className="prep-meal-summary-top"><div><strong>{summary.meal.name}</strong><p>{summary.required} scheduled serving{summary.required === 1 ? "" : "s"} · {summary.covered} covered · {summary.uncovered} need prep</p></div><span className={summary.atRisk.length ? "prep-status prep-status-danger" : summary.uncovered ? "prep-status prep-status-warning" : "prep-status prep-status-good"}>{summary.atRisk.length ? "Freshness risk" : summary.uncovered ? "Needs prep" : "Covered"}</span></div>
+            <div className="prep-occurrences">{summary.occurrences.map((occurrence) => <div className="prep-occurrence" key={occurrence.id}><span>{formatDateKey(occurrence.date)} · {occurrence.slot}</span><span>{SLOT_TIMES[occurrence.slot]} · {overview.batches.some((batch) => batch.coverage.occurrences.some((item) => item.id === occurrence.id)) ? "covered" : "uncovered"}</span></div>)}</div>
+            <p className="prep-macro-total">Scheduled macros: P {summary.meal.protein * summary.required}g · C {summary.meal.carbs * summary.required}g · F {summary.meal.fat * summary.required}g</p>
+          </article>)}</div> : <div className="empty-state empty-state-large"><span className="empty-icon">⌁</span><h3>Nothing scheduled yet</h3><p>Schedule meals in Planner and Prep will calculate what needs to be made.</p></div>}
+        </section>
+
+        <div className="prep-side-column">
+          <form className="prep-batch-form panel" onSubmit={handleSubmit}>
+            <div className="section-heading"><div><p className="eyebrow">Build a batch</p><h2>Make food for the plan</h2></div></div>
+            <label>Meal<select value={mealId} onChange={(event) => setMealId(event.target.value)}>{state.mealLibrary.map((meal) => <option value={meal.id} key={meal.id}>{meal.name}</option>)}</select></label>
+            <div className="prep-form-grid"><label>Prep date<input type="date" value={prepDate} min={state.weekStartDate} max={addDaysToDateKey(state.weekStartDate, 6)} onChange={(event) => setPrepDate(event.target.value)} /></label><label>Servings<input type="number" min="1" value={servings} onChange={(event) => setServings(event.target.value)} /></label></div>
+            <label>Storage<select value={storageMethod} onChange={(event) => setStorageMethod(event.target.value)}><option value="fridge">Fridge · {selectedMeal?.refrigeratedLifeDays || 4} days</option><option value="freezer" disabled={selectedMeal && !selectedMeal.freezerFriendly}>Freezer · {selectedMeal?.frozenLifeDays || 90} days</option></select></label>
+            {candidateCoverage && <div className="batch-preview"><div className="batch-preview-heading"><strong>Batch impact</strong><span>Good through {formatDateKey(candidateCoverage.expirationDate)}</span></div><p>{candidateCoverage.occurrences.length} scheduled serving{candidateCoverage.occurrences.length === 1 ? "" : "s"} covered{candidateCoverage.surplus ? " · " + candidateCoverage.surplus + " surplus" : ""}.</p>{candidateCoverage.occurrences.length ? <div className="batch-preview-dates">{candidateCoverage.occurrences.map((occurrence) => <span key={occurrence.id}>{formatDateKey(occurrence.date)} {SLOT_TIMES[occurrence.slot]}</span>)}</div> : <p className="form-hint">No scheduled occurrence falls inside this batch window.</p>}</div>}
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <button className="button button-primary button-wide" type="submit">Add dated batch</button>
+          </form>
+
+          <section className="prep-recommendation-panel panel">
+            <div className="section-heading"><div><p className="eyebrow">Freshness-aware</p><h2>Recommended batches</h2></div></div>
+            {recommendations.length ? <div className="recommendation-list">{recommendations.map((recommendation, index) => <article className="recommendation-item" key={recommendation.meal.id + recommendation.prepDate + index}><div><strong>{formatDateKey(recommendation.prepDate)} · {recommendation.servings} {recommendation.meal.name}</strong><p>Good through {formatDateKey(recommendation.expirationDate)} · covers {recommendation.occurrences.map((occurrence) => formatDateKey(occurrence.date)).join(", ")}</p></div><button className="button button-quiet button-small" type="button" onClick={() => applyRecommendation(recommendation)}>Use</button></article>)}</div> : <p className="form-hint">Schedule a meal to receive a batch recommendation.</p>}
+          </section>
+        </div>
+      </div>
+
+      <section className="saved-batches-panel panel">
+        <div className="section-heading"><div><p className="eyebrow">Production schedule</p><h2>Saved batches</h2></div><span className="result-count">{state.prepBatches.length} dated</span></div>
+        {state.prepBatches.length ? <div className="saved-batch-list">{overview.batches.filter((batch) => !batch.legacy).map((batch) => <article className="saved-batch" key={batch.id}><div><strong>{formatDateKey(batch.prepDate)} · {batch.servings} {batch.meal.name}</strong><p>{batch.storageMethod === "fridge" ? "Fridge" : "Freezer"} · good through {formatDateKey(batch.coverage.expirationDate)} · covers {batch.coverage.occurrences.length}/{batch.servings} servings</p></div><button className="button button-danger-quiet button-small" type="button" onClick={() => removePrepBatch(batch.id)}>Remove</button></article>)}</div> : <div className="empty-state empty-state-large"><span className="empty-icon">◷</span><h3>No dated batches yet</h3><p>Use the batch builder to turn the scheduled totals into a cooking plan.</p></div>}
+        {state.mealPrepBlocks.length ? <div className="legacy-prep-note"><strong>Legacy prep rules</strong><p>{state.mealPrepBlocks.length} older rule{state.mealPrepBlocks.length === 1 ? " is" : "s are"} still being counted for this week. Create dated batches to replace them.</p>{state.mealPrepBlocks.map((block, index) => <button className="text-button text-button-danger" type="button" key={block.mealId + index} onClick={() => removePrepBlock(index)}>Remove legacy rule</button>)}</div> : null}
+      </section>
     </section>
   );
 }
