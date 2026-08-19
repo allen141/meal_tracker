@@ -115,7 +115,7 @@ export function normalizePrepBatch(batch, index) {
   };
 }
 
-function normalizeState(candidate) {
+export function normalizeState(candidate) {
   const source = candidate && typeof candidate === "object" ? candidate : {};
   const meals = Array.isArray(source.mealLibrary)
     ? source.mealLibrary.map(normalizeMeal).filter(Boolean)
