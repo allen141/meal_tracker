@@ -748,7 +748,7 @@ function PrepPage() {
     setServings(1);
     setError("");
   };
-  const useRecommendation = (recommendation) => {
+  const applyRecommendation = (recommendation) => {
     setMealId(recommendation.meal.id);
     setServings(recommendation.servings);
     setPrepDate(recommendation.prepDate);
@@ -797,7 +797,7 @@ function PrepPage() {
 
           <section className="prep-recommendation-panel panel">
             <div className="section-heading"><div><p className="eyebrow">Freshness-aware</p><h2>Recommended batches</h2></div></div>
-            {recommendations.length ? <div className="recommendation-list">{recommendations.map((recommendation, index) => <article className="recommendation-item" key={recommendation.meal.id + recommendation.prepDate + index}><div><strong>{formatDateKey(recommendation.prepDate)} · {recommendation.servings} {recommendation.meal.name}</strong><p>Good through {formatDateKey(recommendation.expirationDate)} · covers {recommendation.occurrences.map((occurrence) => formatDateKey(occurrence.date)).join(", ")}</p></div><button className="button button-quiet button-small" type="button" onClick={() => useRecommendation(recommendation)}>Use</button></article>)}</div> : <p className="form-hint">Schedule a meal to receive a batch recommendation.</p>}
+            {recommendations.length ? <div className="recommendation-list">{recommendations.map((recommendation, index) => <article className="recommendation-item" key={recommendation.meal.id + recommendation.prepDate + index}><div><strong>{formatDateKey(recommendation.prepDate)} · {recommendation.servings} {recommendation.meal.name}</strong><p>Good through {formatDateKey(recommendation.expirationDate)} · covers {recommendation.occurrences.map((occurrence) => formatDateKey(occurrence.date)).join(", ")}</p></div><button className="button button-quiet button-small" type="button" onClick={() => applyRecommendation(recommendation)}>Use</button></article>)}</div> : <p className="form-hint">Schedule a meal to receive a batch recommendation.</p>}
           </section>
         </div>
       </div>
